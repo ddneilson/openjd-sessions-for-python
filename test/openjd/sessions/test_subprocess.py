@@ -284,7 +284,7 @@ class TestLoggingSubprocessSameUser:
 
         # THEN
         assert not subproc.is_running
-
+        all_messages.extend(collect_queue_messages(message_queue))
         # If we printed "Trapped" then we hit our signal handler, and that shouldn't happen.
         assert "Trapped" not in all_messages
         # Check for the first message that would print
@@ -698,9 +698,9 @@ class TestLoggingSubprocessWindowsCrossUser(object):
         assert any(windows_user.user in message for message in messages)
 
     # TODO: fix this test once subprocess impersonation is switched to use win apis
-    @pytest.mark.skipif(
-        os.getenv("GITHUB_ACTIONS") == "true", reason="Test failing in GH Actions. Passes locally."
-    )
+    # @pytest.mark.skipif(
+    #     os.getenv("GITHUB_ACTIONS") == "true", reason="Test failing in GH Actions. Passes locally."
+    # )
     def test_notify_ends_process(
         self,
         message_queue: SimpleQueue,
@@ -717,11 +717,15 @@ class TestLoggingSubprocessWindowsCrossUser(object):
             args=["python", str(python_app_loc)],
             user=windows_user,
         )
+        all_messages = []
 
         def end_proc():
             subproc.wait_until_started()
             # Then give the Python subprocess some time to finish loading and start running.
-            time.sleep(3)
+            for _ in range(20):
+                all_messages.extend(collect_queue_messages(message_queue))
+                if "Log from test 0" not in all_messages:
+                    time.sleep(1)
             subproc.notify()
 
         # WHEN
@@ -732,12 +736,12 @@ class TestLoggingSubprocessWindowsCrossUser(object):
 
         # THEN
         assert not subproc.is_running
-        messages = collect_queue_messages(message_queue)
-        assert "Trapped" in messages
+        all_messages.extend(collect_queue_messages(message_queue))
+        assert "Trapped" in all_messages
         # Check for the first message that would print
-        assert "Log from test 0" in messages
+        assert "Log from test 0" in all_messages
         # If there's no 19, then we ended before the app naturally finished.
-        assert "Log from test 19" not in messages
+        assert "Log from test 19" not in all_messages
         assert subproc.exit_code != 0
 
     def test_terminate_ends_process(
@@ -757,11 +761,15 @@ class TestLoggingSubprocessWindowsCrossUser(object):
             args=["python", str(python_app_loc)],
             user=windows_user,
         )
+        all_messages = []
 
         def end_proc():
             subproc.wait_until_started()
             # Then give the Python subprocess some time to finish loading and start running.
-            time.sleep(3)
+            for _ in range(20):
+                all_messages.extend(collect_queue_messages(message_queue))
+                if "Log from test 0" not in all_messages:
+                    time.sleep(1)
             subproc.terminate()
 
         # WHEN
@@ -772,19 +780,19 @@ class TestLoggingSubprocessWindowsCrossUser(object):
 
         # THEN
         assert not subproc.is_running
-        messages = collect_queue_messages(message_queue)
+        all_messages.extend(collect_queue_messages(message_queue))
         # If we printed "Trapped" then we hit our signal handler, and that shouldn't happen.
-        assert "Trapped" not in messages
+        assert "Trapped" not in all_messages
         # Check for the first message that would print
-        assert "Log from test 0" in messages
+        assert "Log from test 0" in all_messages
         # If there's no 19, then we ended before the app naturally finished.
-        assert "Log from test 19" not in messages
+        assert "Log from test 19" not in all_messages
         assert subproc.exit_code != 0
 
-    @pytest.mark.skipif(
-        os.getenv("GITHUB_ACTIONS") == "true",
-        reason="Test failing on github.",
-    )
+    # @pytest.mark.skipif(
+    #     os.getenv("GITHUB_ACTIONS") == "true",
+    #     reason="Test failing on github.",
+    # )
     def test_terminate_ends_process_tree(
         self,
         message_queue: SimpleQueue,
@@ -800,34 +808,37 @@ class TestLoggingSubprocessWindowsCrossUser(object):
         subproc = LoggingSubprocess(
             logger=logger, args=["powershell", str(script_loc), "python"], user=windows_user
         )
+        children = []
+        all_messages = []
         # conhost, python
         expected_num_child_procs: int = 2
 
         def end_proc():
-            time.sleep(3)
+            subproc.wait_until_started()
+            # Then give the Python subprocess some time to finish loading and start running.
+            for _ in range(20):
+                all_messages.extend(collect_queue_messages(message_queue))
+                if "Log from test 0" not in all_messages:
+                    time.sleep(1)
+                else:
+                    break
+            children.extend(Process(subproc.pid).children(recursive=True))
             subproc.terminate()
 
         # WHEN
         with ThreadPoolExecutor(max_workers=2) as pool:
             future1 = pool.submit(subproc.run)
-            subproc.wait_until_started()
-            children = list[Process]()
-            attempt = 0
-            while len(children) < expected_num_child_procs and attempt < 5:
-                time.sleep(1)
-                children = Process(subproc.pid).children(recursive=True)
-                attempt += 1
             future2 = pool.submit(end_proc)
             wait((future1, future2), return_when="ALL_COMPLETED")
 
         # THENs
-        messages = collect_queue_messages(message_queue)
+        all_messages.extend(collect_queue_messages(message_queue))
         # If we printed "Trapped" then we hit our signal handler, and that shouldn't happen.
-        assert "Trapped" not in messages
+        assert "Trapped" not in all_messages
         # Check for the first message that would print
-        assert "Log from test 0" in messages
+        assert "Log from test 0" in all_messages
         # If there's no 9, then we ended before the app naturally finished.
-        assert "Log from test 9" not in messages
+        assert "Log from test 9" not in all_messages
         assert subproc.exit_code != 0
         assert len(children) == expected_num_child_procs
         num_children_running = 0

@@ -848,7 +848,7 @@ class TestSessionCancel:
                 EmbeddedFileText_2023_09(
                     name="Foo",
                     type=EmbeddedFileTypes_2023_09.TEXT,
-                    data="import time; time.sleep(10)",
+                    data="import time; print('Starting'); time.sleep(10); print('End')",
                 )
             ],
         )

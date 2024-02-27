@@ -111,12 +111,12 @@ class TestScriptRunnerBase:
             logger=MagicMock(), session_working_directory=tmp_path, callback=callback
         ) as runner:
             # WHEN
-            runner._run(["echo", ""])
+            runner._run(["whoami"])
 
             # THEN
             # Nothing to check. We just want to run it fast. The test will deadlock if
             # we have a problem. Just wait for the application to exit
-            while runner.exit_code is None:
+            while runner.state == ScriptRunnerState.RUNNING:
                 time.sleep(0.0001)
 
     def test_working_dir_is_cwd(
@@ -182,13 +182,9 @@ class TestScriptRunnerBase:
         messages = collect_queue_messages(message_queue)
 
         # THEN
-        if is_windows():
-            assert any(
-                item.startswith(
-                    "Command not found: The term 'test_failed_command' is not recognized"
-                )
-                for item in messages
-            ), "Error message in Windows is not correct."
+        assert any(
+            item.startswith("Process failed to start") for item in messages
+        ), "Logged error message is not correct."
         assert runner.state == ScriptRunnerState.FAILED
         assert runner.exit_code != 0
 
@@ -548,7 +544,7 @@ class TestScriptRunnerBase:
 
             # THEN
             # Wait for the app to exit
-            while runner.exit_code is None:
+            while runner.state == ScriptRunnerState.RUNNING:
                 time.sleep(0.2)
             assert runner.state == ScriptRunnerState.CANCELED
             assert runner.exit_code != 0

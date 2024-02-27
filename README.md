@@ -20,6 +20,7 @@ This library requires:
 3. On Linux/MacOS:
     * `sudo`
 4. On Windows:
+    * CPython implementation of Python
     * PowerShell 5.x
 
 **EXPERIMENTAL** Note that compatibility with the Windows operating system is currently in active development

@@ -1,5 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 
+import os
 import sys
 from typing import Any, Optional
 import ctypes
@@ -19,7 +20,7 @@ from ._api import (
     CreateProcessWithLogonW,
     # DestroyEnvironmentBlock,
 )
-from ._helpers import environment_block_for_user
+from ._helpers import environment_block_for_user, logon_user_context
 from .._session_user import WindowsSessionUser
 
 # Tell type checker to ignore on non-windows platforms
@@ -97,6 +98,12 @@ class PopenWindowsAsUser(Popen):
         # CreateProcess* may modify the commandline, so copy it to a mutable buffer
         cmdline = ctypes.create_unicode_buffer(commandline)
 
+        if executable is not None:
+            executable = os.fsdecode(executable)
+
+        if cwd is not None:
+            cwd = os.fsdecode(cwd)
+
         # Initialize structures
         si = STARTUPINFO()
         si.cb = ctypes.sizeof(STARTUPINFO)
@@ -109,8 +116,14 @@ class PopenWindowsAsUser(Popen):
             si.hStdError = int(errwrite)
             si.dwFlags |= STARTF_USESTDHANDLES
 
+        sys.audit("subprocess.Popen", executable, args, cwd, env, self.user.user)
+
         try:
             if self.user.password is not None:
+                with logon_user_context(self.user.user, self.user.password) as logon_token:
+                    self._env_ptr = environment_block_for_user(logon_token)
+                # TODO: Merge the given env into the environment block when env != None.
+
                 # https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createprocesswithlogonw
                 if not CreateProcessWithLogonW(
                     self.user.user,
@@ -119,8 +132,8 @@ class PopenWindowsAsUser(Popen):
                     LOGON_WITH_PROFILE,
                     executable,
                     cmdline,
-                    creationflags,
-                    None,  # TODO - env: We currently always pass None. Need to convert to an environment block when env != None
+                    creationflags | CREATE_UNICODE_ENVIRONMENT,
+                    self._env_ptr,
                     cwd,
                     ctypes.byref(si),
                     ctypes.byref(pi),
@@ -136,7 +149,7 @@ class PopenWindowsAsUser(Popen):
                 # specify it in lpEnvironment.
 
                 self._env_ptr = environment_block_for_user(self.user.logon_token)
-                # TODO: env: We currently always pass None. Merge the given env into the environment block when env != None.
+                # TODO: Merge the given env into the environment block when env != None.
 
                 if not CreateProcessAsUserW(
                     self.user.logon_token,
@@ -151,6 +164,7 @@ class PopenWindowsAsUser(Popen):
                     ctypes.byref(si),
                     ctypes.byref(pi),
                 ):
+                    # Raises: OSError
                     raise ctypes.WinError()
             else:
                 raise NotImplementedError("Unexpected case for WindowsSessionUser properties")

@@ -122,7 +122,7 @@ def tests_are_in_windows_session_0() -> bool:
     return TEST_RUNNING_IN_WINDOWS_SESSION_0
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def windows_user() -> Generator[WindowsSessionUser, None, None]:
     if not is_windows():
         pytest.skip("Windows-specific feature")
