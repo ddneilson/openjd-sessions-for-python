@@ -23,7 +23,8 @@ from .conftest import (
     collect_queue_messages,
     has_posix_target_user,
     has_windows_user,
-    SET_ENV_VARS_MESSAGE,
+    WIN_SET_TEST_ENV_VARS_MESSAGE,
+    POSIX_SET_TARGET_USER_ENV_VARS_MESSAGE,
 )
 
 
@@ -431,7 +432,7 @@ def list_has_items_in_order(expected: list, actual: list) -> bool:
 
 @pytest.mark.xfail(
     not has_posix_target_user(),
-    reason="Must be running inside of the sudo_environment testing container.",
+    reason=POSIX_SET_TARGET_USER_ENV_VARS_MESSAGE,
 )
 @pytest.mark.usefixtures("message_queue", "queue_handler", "posix_target_user")
 class TestLoggingSubprocessPosixCrossUser(object):
@@ -628,7 +629,7 @@ class TestLoggingSubprocessPosixCrossUser(object):
 @pytest.mark.skipif(not is_windows(), reason="Windows-specific tests")
 @pytest.mark.xfail(
     not has_windows_user(),
-    reason=SET_ENV_VARS_MESSAGE,
+    reason=WIN_SET_TEST_ENV_VARS_MESSAGE,
 )
 class TestLoggingSubprocessWindowsCrossUser(object):
     """Tests for LoggingSubprocess's ability to run the subprocess as a separate user on Windows."""

@@ -32,7 +32,7 @@ class TestWindowsSessionUser:
     def test_no_password_impersonation_throws_exception(self):
         with pytest.raises(
             RuntimeError,
-            match="Must supply a password. User is not the process owner.",
+            match="Must supply a password or logon token. User is not the process owner.",
         ):
             WindowsSessionUser("nonexistent_user", group="test_group")
 

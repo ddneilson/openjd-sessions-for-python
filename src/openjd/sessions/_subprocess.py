@@ -6,7 +6,7 @@ from ._os_checker import is_posix, is_windows
 
 if is_windows():
     from subprocess import CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW  # type: ignore
-    from ._popen_windows_as_user import PopenWindowsAsUser  # type: ignore
+    from ._win32._popen_as_user import PopenWindowsAsUser  # type: ignore
     from ._windows_process_killer import kill_windows_process_tree
 from typing import Any
 from threading import Event
@@ -246,7 +246,7 @@ class LoggingSubprocess(object):
 
             if is_windows() and self._user and not user.is_process_user():
                 popen_args["creationflags"] += CREATE_NO_WINDOW
-                return PopenWindowsAsUser(user.user, user.password, **popen_args)  # type: ignore
+                return PopenWindowsAsUser(user, **popen_args)  # type: ignore
             else:
                 return Popen(**popen_args)
 

@@ -39,7 +39,8 @@ from .conftest import (
     collect_queue_messages,
     has_posix_target_user,
     has_windows_user,
-    SET_ENV_VARS_MESSAGE,
+    WIN_SET_TEST_ENV_VARS_MESSAGE,
+    POSIX_SET_TARGET_USER_ENV_VARS_MESSAGE,
 )
 
 
@@ -259,7 +260,7 @@ class TestScriptRunnerBase:
     @pytest.mark.skipif(not is_posix(), reason="posix-only test")
     @pytest.mark.xfail(
         not has_posix_target_user(),
-        reason="Must be running inside of the sudo_environment testing container.",
+        reason=POSIX_SET_TARGET_USER_ENV_VARS_MESSAGE,
     )
     @pytest.mark.usefixtures("message_queue", "queue_handler", "posix_target_user")
     def test_run_as_posix_user(
@@ -307,7 +308,7 @@ class TestScriptRunnerBase:
     @pytest.mark.skipif(not is_windows(), reason="Windows-only test")
     @pytest.mark.xfail(
         not has_windows_user(),
-        reason=SET_ENV_VARS_MESSAGE,
+        reason=WIN_SET_TEST_ENV_VARS_MESSAGE,
     )
     @pytest.mark.timeout(90)
     def test_run_as_windows_user(
@@ -345,7 +346,7 @@ class TestScriptRunnerBase:
     @pytest.mark.skipif(not is_posix(), reason="posix-specific test")
     @pytest.mark.xfail(
         not has_posix_target_user(),
-        reason="Must be running inside of the sudo_environment testing container.",
+        reason=POSIX_SET_TARGET_USER_ENV_VARS_MESSAGE,
     )
     @pytest.mark.usefixtures("message_queue", "queue_handler", "posix_target_user")
     @pytest.mark.timeout(40)
@@ -400,7 +401,7 @@ class TestScriptRunnerBase:
     @pytest.mark.skipif(not is_windows(), reason="Windows-specific test")
     @pytest.mark.xfail(
         not has_windows_user(),
-        reason=SET_ENV_VARS_MESSAGE,
+        reason=WIN_SET_TEST_ENV_VARS_MESSAGE,
     )
     def test_does_not_inherit_env_vars_windows(
         self,
