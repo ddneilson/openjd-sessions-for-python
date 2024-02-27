@@ -8,9 +8,16 @@ from unittest.mock import patch
 
 import pytest
 
+from .conftest import tests_are_in_windows_session_0
+
 
 @pytest.mark.skipif(not is_windows(), reason="Windows-specific tests")
 class TestWindowsSessionUser:
+
+    @pytest.mark.skipif(
+        tests_are_in_windows_session_0(),
+        reason="Cannot creaet a WindowsSessionUser with a password while in Sesion 0.",
+    )
     @pytest.mark.parametrize(
         "user",
         ["userA", "domain\\userA"],
@@ -36,6 +43,10 @@ class TestWindowsSessionUser:
         ):
             WindowsSessionUser("nonexistent_user", group="test_group")
 
+    @pytest.mark.skipif(
+        tests_are_in_windows_session_0(),
+        reason="Cannot creaet a WindowsSessionUser with a password while in Sesion 0.",
+    )
     def test_incorrect_credential(self):
         with pytest.raises(
             BadCredentialsException,

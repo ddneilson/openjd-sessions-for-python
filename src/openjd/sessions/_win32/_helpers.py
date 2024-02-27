@@ -216,6 +216,7 @@ def user_profile_context(username: str, logon_token: HANDLE) -> Generator[PROFIL
     try:
         yield profile_info
     finally:
+        return
         if not UnloadUserProfile(logon_token, profile_info.hProfile):
             # "Before calling UnloadUserProfile you should ensure that all handles to keys that you
             # have opened in the user's registry hive are closed. If you do not close all open

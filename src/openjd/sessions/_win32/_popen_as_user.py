@@ -17,7 +17,7 @@ from ._api import (
     CloseHandle,
     CreateProcessAsUserW,
     CreateProcessWithLogonW,
-    DestroyEnvironmentBlock,
+    # DestroyEnvironmentBlock,
 )
 from ._helpers import environment_block_for_user
 from .._session_user import WindowsSessionUser
@@ -52,9 +52,17 @@ class PopenWindowsAsUser(Popen):
         super(PopenWindowsAsUser, self).__init__(*args, **kwargs)
 
     def __del__(self) -> None:
+        # TODO - Doing this destroy causes test runners to start dieing
+        # Windows fatal exception: code 0xc0000374
+        # ...
+        # Current thread 0x00001470 (most recent call first):
+        #   File "C:\Users\Administrator\GitHub\openjd-sessions-for-python\src\openjd\sessions\_win32\_popen_as_user.py", line 56 in __del__
+        #   File "<shim>", line ??? in <interpreter trampoline>
+        #   ...
+        #
+        # if self._env_ptr is not None:
+        #     DestroyEnvironmentBlock(self._env_ptr)
         super().__del__()
-        if self._env_ptr is not None:
-            DestroyEnvironmentBlock(self._env_ptr)
 
     def _execute_child(
         self,

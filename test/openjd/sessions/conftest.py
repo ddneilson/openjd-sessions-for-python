@@ -16,7 +16,7 @@ if is_windows():
     from openjd.sessions._win32._helpers import (
         get_current_process_session_id,
         logon_user_context,
-        user_profile_context,
+        # user_profile_context,
     )
 
     TEST_RUNNING_IN_WINDOWS_SESSION_0: bool = 0 == get_current_process_session_id()
@@ -118,7 +118,7 @@ def has_windows_user() -> bool:
     )
 
 
-def is_windows_session_0() -> bool:
+def tests_are_in_windows_session_0() -> bool:
     return TEST_RUNNING_IN_WINDOWS_SESSION_0
 
 
@@ -135,8 +135,8 @@ def windows_user() -> Generator[WindowsSessionUser, None, None]:
     if TEST_RUNNING_IN_WINDOWS_SESSION_0:
         try:
             with logon_user_context(user, password) as logon_token:
-                with user_profile_context(user, logon_token):
-                    yield WindowsSessionUser(user, logon_token=logon_token)
+                # with user_profile_context(user, logon_token):
+                yield WindowsSessionUser(user, logon_token=logon_token)
         except OSError as e:
             raise Exception(
                 f"Could not logon as {user}. Check the password that was provided in {WIN_PASS_ENV_VAR}."

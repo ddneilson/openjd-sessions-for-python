@@ -800,6 +800,8 @@ class TestLoggingSubprocessWindowsCrossUser(object):
         subproc = LoggingSubprocess(
             logger=logger, args=["powershell", str(script_loc), "python"], user=windows_user
         )
+        # conhost, python
+        expected_num_child_procs: int = 2
 
         def end_proc():
             time.sleep(3)
@@ -811,14 +813,14 @@ class TestLoggingSubprocessWindowsCrossUser(object):
             subproc.wait_until_started()
             children = list[Process]()
             attempt = 0
-            while len(children) != 2 and attempt < 5:
+            while len(children) < expected_num_child_procs and attempt < 5:
                 time.sleep(1)
                 children = Process(subproc.pid).children(recursive=True)
                 attempt += 1
             future2 = pool.submit(end_proc)
             wait((future1, future2), return_when="ALL_COMPLETED")
 
-        # THEN
+        # THENs
         messages = collect_queue_messages(message_queue)
         # If we printed "Trapped" then we hit our signal handler, and that shouldn't happen.
         assert "Trapped" not in messages
@@ -827,7 +829,7 @@ class TestLoggingSubprocessWindowsCrossUser(object):
         # If there's no 9, then we ended before the app naturally finished.
         assert "Log from test 9" not in messages
         assert subproc.exit_code != 0
-        assert len(children) == 2
+        assert len(children) == expected_num_child_procs
         num_children_running = 0
         for _ in range(0, 50):
             time.sleep(0.25)  # Give the child processes some time to end.
