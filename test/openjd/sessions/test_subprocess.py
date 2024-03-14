@@ -419,6 +419,45 @@ sys.exit(0)
         assert list_has_items_in_order(expected_messages, messages)
         all(len(m) <= expected_max_line_length for m in messages)
 
+    @pytest.mark.skipif(not is_windows(), reason="Windows-specific test")
+    def test_inherited_handles(
+        self, message_queue: SimpleQueue, queue_handler: QueueHandler
+    ) -> None:
+        # GIVEN
+        logger = build_logger(queue_handler)
+        script_loc = (Path(__file__).parent / "support_files" / "app_20s_run.bat").resolve()
+        args = [str(script_loc)]
+        subproc = LoggingSubprocess(
+            logger=logger,
+            args=args,
+        )
+        all_messages = []
+
+        # WHEN
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(subproc.run)
+            subproc.wait_until_started()
+            # Then give the Python subprocess some time to finish loading and start running.
+            for _ in range(20):
+                all_messages.extend(collect_queue_messages(message_queue))
+                if "Log from test 0" not in all_messages:
+                    time.sleep(1)
+                else:
+                    break
+            # Collect inherit-flagged handle IDs from us and the child while the process is running
+            from .support_files.win_subproc_handles import get_inherited_handles
+
+            self_inherit_handles, child_inherit_handles = get_inherited_handles(subproc.pid)
+            # Now, terminate the process and wait for it to exit
+            subproc.terminate()
+            wait((future,), return_when="ALL_COMPLETED")
+            # We don't actually need the child messages, but flush the queue
+            all_messages.extend(collect_queue_messages(message_queue))
+
+        # THEN
+        assert len(child_inherit_handles) == 3
+        assert len(self_inherit_handles) > len(child_inherit_handles)
+
 
 def list_has_items_in_order(expected: list, actual: list) -> bool:
     """
@@ -893,3 +932,45 @@ class TestLoggingSubprocessWindowsCrossUser(object):
             if num_children_running == 0:
                 break
         assert num_children_running == 0
+
+    @pytest.mark.skipif(
+        not tests_are_in_windows_session_0(),
+        reason="Handle inheritence script doesn't yet function correctly with children created via CreateProcessAsUserW.",
+    )
+    def test_inherited_handles(
+        self,
+        message_queue: SimpleQueue,
+        queue_handler: QueueHandler,
+        windows_user: WindowsSessionUser,
+    ) -> None:
+        # GIVEN
+        logger = build_logger(queue_handler)
+        script_loc = (Path(__file__).parent / "support_files" / "app_20s_run.bat").resolve()
+        args = [str(script_loc)]
+        subproc = LoggingSubprocess(logger=logger, args=args, user=windows_user)
+        all_messages = []
+
+        # WHEN
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(subproc.run)
+            subproc.wait_until_started()
+            # Then give the Python subprocess some time to finish loading and start running.
+            for _ in range(20):
+                all_messages.extend(collect_queue_messages(message_queue))
+                if "Log from test 0" not in all_messages:
+                    time.sleep(1)
+                else:
+                    break
+            # Collect inherit-flagged handle IDs from us and the child while the process is running
+            from .support_files.win_subproc_handles import get_inherited_handles
+
+            self_inherit_handles, child_inherit_handles = get_inherited_handles(subproc.pid)
+            # Now, terminate the process and wait for it to exit
+            subproc.terminate()
+            wait((future,), return_when="ALL_COMPLETED")
+            # We don't actually need the child messages, but flush the queue
+            all_messages.extend(collect_queue_messages(message_queue))
+
+        # THEN
+        assert len(child_inherit_handles) == 3
+        assert len(self_inherit_handles) > len(child_inherit_handles)
